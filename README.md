@@ -36,6 +36,7 @@ including qbittorrent management, Romm library cleanup, and more.
    docker run -d \
      --name romm-gog-custodian \
      -v /path/to/your/config:/app/config \
+     -v /path/to/your/cache:/app/cache \
      -v /path/to/your/logs:/app/logs \
      -v /path/to/your/library:/data/library \
      -v /path/to/your/torrents:/data/torrent \
