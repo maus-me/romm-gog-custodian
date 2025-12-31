@@ -4,11 +4,12 @@ import time
 
 from src.logger_config import setup_logging
 from src.modules import romm_library_cleanup, torrents, library_cleanup
-from src.modules.config_parse import LOG_FILE_PATH, ON_STARTUP, WAIT_TIME, TESTING
+from src.modules.config_parse import LOG_FILE_PATH, ON_STARTUP, WAIT_TIME, TESTING, DEBUG_LOGGING
 from src.tests.romm import RommTestAPI
 
 # Configure logging before importing other modules
-setup_logging(log_file_path=LOG_FILE_PATH)
+log_level = logging.DEBUG if DEBUG_LOGGING else logging.INFO
+setup_logging(level=log_level, log_file_path=LOG_FILE_PATH)
 logger = logging.getLogger(__name__)
 
 

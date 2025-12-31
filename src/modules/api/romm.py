@@ -1,13 +1,17 @@
 import base64
+import json
 import logging
+import time
 from typing import Dict, List, Optional
 
 import requests
+import websocket
 from requests.adapters import HTTPAdapter
 from requests.exceptions import ConnectionError, Timeout, RequestException
 from urllib3.util.retry import Retry
 
-from src.modules.config_parse import ROMM_API_PASSWORD, ROMM_API_USERNAME, ROMM_API_URL, ROMM_PLATFORM_SLUG
+from src.modules.config_parse import ROMM_API_PASSWORD, ROMM_API_USERNAME, ROMM_API_URL, ROMM_PLATFORM_SLUG, \
+    ROMM_API_WEBSOCKET
 
 logger = logging.getLogger(__name__)
 
@@ -19,6 +23,7 @@ class RommAPI:
         self.password = ROMM_API_PASSWORD
         self.slug = ROMM_PLATFORM_SLUG
         self.base_url = ROMM_API_URL
+        self.websocket = f"{ROMM_API_WEBSOCKET}/ws/socket.io/?EIO=4&transport=websocket"
         self.headers = self._create_auth_headers()
         self._setup_session()
 
@@ -101,7 +106,7 @@ class RommAPI:
             API response
         """
         data = {"roms": game_ids, "delete_from_fs": []}
-        logger.info(f"Deleting {len(game_ids)} empty ROMMs...")
+        logger.info(f"Deleting {len(game_ids)} ROMMs...")
         return self._request("POST", "/api/roms/delete", json=data)
 
     # Get Game Endpoint GET: /api/roms/{game_id}
@@ -230,3 +235,87 @@ class RommAPI:
         params.update(kwargs)
 
         return self._request("GET", "/api/roms", params=params)
+
+    def scan_library(self, platforms: List[int], scan_type: str = "quick", apis: List[str] = None) -> bool:
+        """
+        Create a websocket connection to ROMM and issue a scan command.
+        Waits for "scan:done" message before closing.
+
+        Args:
+            platforms: List of platform IDs to scan
+            scan_type: Type of scan (e.g., "quick")
+            apis: List of APIs to use for scanning (default: igdb, hltb, sgdb)
+
+        Returns:
+            True if command was sent successfully and scan finished, False otherwise
+        """
+        if apis is None and scan_type != "hashes":
+            apis = ["sgdb", "igdb", "hltb"]
+        elif apis is None:
+            apis = []
+
+        message = [
+            "scan",
+            {
+                "platforms": platforms,
+                "type": scan_type,
+                "apis": apis
+            }
+        ]
+        message_formatted = f"42{json.dumps(message)}"
+        logger.debug(f"Sending scan command to ROMM: {message_formatted}")
+
+        try:
+            # TODO: Rewrite this.  It works, but it's ugly.
+            # Set a 2-hour timeout (7200 seconds)
+            timeout = 7200
+            ws = websocket.create_connection(self.websocket, timeout=timeout)
+            result = ws.recv()
+
+            logger.debug(f"{result}")
+            ws.send("40")
+            result = ws.recv()
+            logger.debug(f"{result}")
+
+            # Socket.IO websocket transport framing: 42 + JSON message
+            # 4 is Message, 2 is Event
+            ws.send(message_formatted)
+            logger.info(f"Scan command sent to ROMM for platforms: {platforms}. Waiting for completion...")
+
+            start_time = time.time()
+            while True:
+                # Check for 2-hour timeout as a failsafe
+                if time.time() - start_time > timeout:
+                    logger.warning("Scan timeout reached (2 hours). Closing connection.")
+                    break
+
+                try:
+                    result = ws.recv()
+                    logger.debug(f"Received from ROMM websocket: {result}")
+
+                    # Check for scan:done message
+                    if '"scan:done"' in result:
+                        logger.info("ROMM scan completed successfully.")
+                        break
+
+                    if '"scan:stop"' in result:
+                        logger.info("ROMM scan stopped.")
+                        break
+
+                    # Heartbeat (Ping 2 -> Pong 3)
+                    if result == "2":
+                        ws.send("3")
+                        logger.debug("Sent Socket.IO heartbeat (pong)")
+
+                except websocket.WebSocketTimeoutException:
+                    logger.warning("Websocket timeout reached during receive. Closing.")
+                    break
+                except Exception as e:
+                    logger.error(f"Error while receiving from websocket: {e}")
+                    break
+
+            ws.close()
+            return True
+        except Exception as e:
+            logger.error(f"Failed to communicate with ROMM via websocket: {e}")
+            return False

@@ -23,6 +23,18 @@ def run():
                 find_missing_exe()
             if ROMM_SCAN_DANGEROUS_FILETYPES:
                 find_dangerous_filetypes()
+
+            if ROMM_SCAN_AFTER_IMPORT:
+                platform_id = RommAPI().get_platform_by_slug()
+                if platform_id:
+                    romm_api = RommAPI()
+                    # Scan the file changes in the library folder
+                    logger.info("Scanning for file changes in the library folder...")
+                    romm_api.scan_library(platforms=[platform_id], scan_type="hashes")
+                    # Scan for new metadata sources
+                    logger.info("Scanning for new metadata sources...")
+                    romm_api.scan_library(platforms=[platform_id])
+
             logger.info("ROMM library cleanup completed.")
         except Exception as e:
             logger.error(f"Error during ROMM library cleanup: {e}")

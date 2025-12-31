@@ -75,6 +75,6 @@ def setup_logging(level=logging.INFO, log_file_path='logs/logs.log', max_bytes=5
         maxBytes=max_bytes,
         backupCount=backup_count
     )
-    file_handler.setLevel(logging.INFO)
+    file_handler.setLevel(level)
     file_handler.setFormatter(file_formatter)  # Use plain formatter for files
     root_logger.addHandler(file_handler)
