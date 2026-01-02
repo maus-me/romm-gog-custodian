@@ -108,7 +108,9 @@ def torrent_manager():
             logger.info(f"Processing all {len(completed_torrents)} available torrents")
 
         # Filter for torrents in the specific category that are done seeding.
-        replaced_any, new_any = False
+        replaced_any = False
+        new_any = False
+
         for torrent in completed_torrents:
             # Validate the torrent state is "Stopped".  This means that the torrent has finished downloading AND seeding.
             if torrent.state == 'stoppedUP':
