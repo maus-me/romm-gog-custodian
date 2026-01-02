@@ -1,33 +1,35 @@
 # romm-gog-custodian
 
-Unofficial tooling specifically designed with Romm libraries in mind, to automate management of a GOG game library,
-including qbittorrent management, Romm library cleanup, and more.
+Unofficial tooling designed to bridge some gaps with Romm libraries as well as provide a way to automatically manage
+qbittorrent downloads.
 
-## Features
+## Notable Features
 
-- Automated torrent management and post-processing
-- Game library cleanup and organization
+- Automatically import games from qBittorrent to your Romm library.
+- Renaming based on api data to improve Romm matching.
+- Game library cleanup and organization.
+- Refresh library file hashes when games are updated.
 - Configurable logging with log rotation
 - Customizable settings via `config/config.cfg`
 - Periodic execution with configurable wait time
 
+## Notes
+
+You will need to build your own pipeline for your torrent downloads. I recommend using AutoBrr with an RSS feed to
+curate your torrents.
+
+This would look something like:
+
+``` 
+* Autobrr
+    * Setup a Indexer (RSS Feed)
+    * Setup qbittorrent as a download client.
+    * Create a filter, with your indexers with the action type of "qBittorrent".
+        * Specify the Category as: gog
+Once the torrents are done downloading and no longer seeding, they will be moved to the Romm library on the next run.
+```
 
 ## How to Run
-
-### Python Environment
-
-1. **Install requirements** (if any):
-   ```
-   pip install -r requirements.txt
-   ```
-
-2. **Configure the application**  
-   Edit `config/config.cfg` to set your paths and preferences.
-
-3. **Run the application**:
-   ```
-   python app.py
-   ```
 
 ### Docker Environment
 
@@ -51,8 +53,8 @@ keeping up to 5 backup files.
 ## Roadmap
 
 - [ ] Add support for more game platforms
-   - [ ] Improve minimum game size check per console type
+- [ ] Improve minimum game size check per console type
 - [ ] Add ClamAV support for virus scanning
 - [ ] Add branch for development and stable
-- 
+- [X] Add library scanning functionality
 

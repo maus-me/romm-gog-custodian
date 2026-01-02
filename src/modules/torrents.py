@@ -22,10 +22,11 @@ import qbittorrentapi
 from qbittorrentapi import Client
 
 # Load modules with explicit imports
+from src.modules import romm_library_cleanup
 from src.modules.config_parse import (
     GAME_PATH, conn_info, QBIT_CATEGORY,
     GOG_ALL_GAMES_FILE, GOG_ALL_GAMES_URL,
-    MAX_TORRENTS_PER_RUN, DELETE_AFTER_PROCESSING, QBIT_ENABLE
+    MAX_TORRENTS_PER_RUN, DELETE_AFTER_PROCESSING, QBIT_ENABLE, ROMM_ENABLE, ROMM_SCAN_AFTER_IMPORT
 )
 from src.modules.helpers import fetch_json_data
 
@@ -107,6 +108,7 @@ def torrent_manager():
             logger.info(f"Processing all {len(completed_torrents)} available torrents")
 
         # Filter for torrents in the specific category that are done seeding.
+        replaced_any, new_any = False
         for torrent in completed_torrents:
             # Validate the torrent state is "Stopped".  This means that the torrent has finished downloading AND seeding.
             if torrent.state == 'stoppedUP':
@@ -126,12 +128,26 @@ def torrent_manager():
                 # Copy and Delete to the game library root path
                 destination = os.path.join(GAME_PATH, new_name)
 
-                if move_torrent_folder(source, destination):
+                success, replaced, new = move_torrent_folder(source, destination)
+                if success:
+                    if replaced:
+                        replaced_any = True
+                    if new:
+                        new_any = True
                     # Only delete torrent if configured to do so
                     if DELETE_AFTER_PROCESSING:
                         delete_torrent(torrent.hash)
                     else:
                         logger.info(f"Keeping torrent {name} (delete_after_processing is disabled)")
+
+        # If any folder was replaced and ROMM integration is enabled, trigger a file changes scan
+        if ROMM_ENABLE and ROMM_SCAN_AFTER_IMPORT:
+            if replaced_any:
+                logger.info("Triggering ROMM file hash scan due to replacing files within existing folders")
+                romm_library_cleanup.scan_file_changes()
+            if new_any:
+                logger.info("Triggering ROMM scan due to new folders being created")
+                romm_library_cleanup.scan_after_import()
     except qbittorrentapi.LoginFailed as e:
         logger.error(f"qBittorrent login failed: {e}")
     except qbittorrentapi.APIConnectionError as e:
@@ -140,7 +156,7 @@ def torrent_manager():
         logger.error(f"Unexpected error in torrent manager: {e}")
 
 
-def move_torrent_folder(source: str, destination: str) -> bool:
+def move_torrent_folder(source: str, destination: str) -> tuple[bool, bool, bool]:
     """
     Move a torrent folder from source to destination.
     
@@ -152,47 +168,54 @@ def move_torrent_folder(source: str, destination: str) -> bool:
         destination: The destination path where the torrent folder should be moved.
         
     Returns:
-        bool: True if the folder was successfully moved, False otherwise.
+        tuple[bool, bool]: (success, replaced)
+            success: True if the folder was successfully moved, False otherwise.
+            replaced: True if an existing destination folder was deleted, False otherwise.
     """
+    replaced = False
+    new = False
     # Check if source exists
     if not os.path.exists(source):
         logger.error(f"Source path does not exist: {source}")
-        return False
+        return False, replaced, new
 
     # Check if source is a directory
     if not os.path.isdir(source):
         logger.error(f"Source is not a directory: {source}")
-        return False
+        return False, replaced, new
 
-    # Handle existing destination
+    # Handle existing destination (old version of game)
+
     if os.path.exists(destination):
         try:
             logger.info(f'Deleting existing version: {destination}')
             shutil.rmtree(destination)
+            replaced = True
         except OSError as e:
             logger.error(f"Error deleting {destination}: {e}")
-            return False
+            return False, replaced, new
 
     # Try to move using os.rename (fast)
     try:
         os.rename(source, destination)
         logger.info(f'Moved {source} to {destination}')
-        return True
+        new = True
+        return True, replaced, new
     except OSError as e:
-        logger.warning(f'Unable to use os.rename to move {source} to {destination}: {e}')
-        logger.warning('Attempting to use shutil.move instead (slower but more robust).')
+        logger.warning(f'Unable to use os.rename to move {source} to {destination}: {e}. Falling back to shutil.move.')
 
         # Fall back to shutil.move (slower but more robust)
         try:
             shutil.move(source, destination)
             logger.info(f'Moved {source} to {destination} using shutil.move')
-            return True
+            new = True
+            return True, replaced, new
         except (OSError, shutil.Error) as e:
             logger.error(f'Error moving {source} using shutil.move: {e}')
-            return False
+            return False, replaced, new
     except Exception as e:
         logger.error(f'Unexpected error moving {source}: {e}')
-        return False
+        return False, replaced, new
 
 
 def delete_torrent(torrent_hash: str) -> bool:
@@ -305,6 +328,7 @@ def new_folder(torrent_name: str) -> Optional[str]:
         return None
 
     # Remove copyright characters and other unwanted characters that may appear in the metadata.
+    # TODO: Move these to the configuration file
     for char in '©®™':
         new_name = new_name.replace(char, '')
 

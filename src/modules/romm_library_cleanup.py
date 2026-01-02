@@ -24,23 +24,35 @@ def run():
             if ROMM_SCAN_DANGEROUS_FILETYPES:
                 find_dangerous_filetypes()
 
-            if ROMM_SCAN_AFTER_IMPORT:
-                platform_id = RommAPI().get_platform_by_slug()
-                if platform_id:
-                    romm_api = RommAPI()
-                    # Scan the file changes in the library folder
-                    logger.info("Scanning for file changes in the library folder...")
-                    romm_api.scan_library(platforms=[platform_id], scan_type="hashes")
-                    # Scan for new metadata sources
-                    logger.info("Scanning for new metadata sources...")
-                    romm_api.scan_library(platforms=[platform_id])
-
             logger.info("ROMM library cleanup completed.")
         except Exception as e:
             logger.error(f"Error during ROMM library cleanup: {e}")
     else:
         logger.info("ROMM library cleanup is disabled in the configuration. Skipping...")
 
+
+def scan_after_import():
+    try:
+        romm_api = RommAPI()
+        platform_id = romm_api.get_platform_by_slug()
+        if platform_id:
+            # Scan for new metadata sources
+            logger.info("Scanning for new metadata sources...")
+            romm_api.scan_library(platforms=[platform_id], scan_type="quick", apis=["sgdb", "igdb", "hltb"])
+    except Exception as e:
+        logger.error(f"Error in scan_after_import: {e}")
+
+
+def scan_file_changes():
+    try:
+        romm_api = RommAPI()
+        platform_id = romm_api.get_platform_by_slug()
+        # Scan the file changes in the library folder, should be quick and entirely local.
+        if platform_id:
+            logger.info("Scanning for file changes in the library folder...")
+            romm_api.scan_library(platforms=[platform_id], scan_type="hashes")
+    except Exception as e:
+        logger.error(f"Error in scan_file_changes: {e}")
 
 def find_empty():
     # Get the list of romms from the API
@@ -198,9 +210,9 @@ def find_missing_exe():
 
 def find_dangerous_filetypes():
     """
-    Find ROMMs that contain dangerous file types.
+    Find ROMMs that contain potentially dangerous file types.
     This function will check each ROMM file for the presence of dangerous file types.
-    This is not an exhaustive list, but it includes common dangerous file types that should not exist with any legitimate game release like .bat and .cmd.
+    This is not an exhaustive list, but it includes common dangerous file types that should not exist with any legitimate game GOG release like .bat and .cmd.
     It is recommended to add more file types as needed and to leverage a more comprehensive security solution like ClamAV.
     """
     logger.info("Finding ROMMs with dangerous file types...")
@@ -233,14 +245,17 @@ def find_dangerous_filetypes():
 
         for item in items:
             for file in item.get('files', []):
-                if file.get('file_name').endswith(('.bat', '.cmd')):
-                    logger.warning(f"Romm has dangerous file: {item.get('name')} (ID: {item.get('id')})")
+                if file.get('file_name').endswith(
+                        ('.bat', '.cmd', '.url', '.m3u', '.pdf', '.js', '.iso', '.ics', '.msi', '.msix', '.msu', '.one',
+                         '.cpl', '.cab', '.gadget', '.iqy', '.msp', '.appx', '.jse', '.scr', '.reg', '.ws', '.wse',
+                         '.wsf')):
+                    logger.warning(f"Release has potentially dangerous file: {item.get('name')} (ID: {item.get('id')})")
                     game_ids.append(item.get('id'))
                     break
 
         if game_ids:
-            logger.info(f"ROMMs with dangerous files: {len(game_ids)} found.")
+            logger.info(f"Releases with dangerous files: {len(game_ids)} found.")
         else:
-            logger.info("No ROMMs with dangerous files found.")
+            logger.info("No releases with dangerous files found.")
     except Exception as e:
         logger.error(f"Error in find_dangerous_filetypes: {e}")
