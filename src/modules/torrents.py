@@ -152,12 +152,13 @@ def torrent_manager():
                     logger.info("Skipping extras removal.")
                 if ROMM_SCAN_DANGEROUS_FILETYPES:
                     romm_library_cleanup.find_dangerous_filetypes()
-            if replaced_any:
-                logger.info("Triggering ROMM file hash scan due to replacing files within existing folders")
-                romm_library_cleanup.scan_file_changes()
+            # Fix for issue #1
             if new_any:
                 logger.info("Triggering ROMM scan due to new folders being created")
                 romm_library_cleanup.scan_after_import()
+            if replaced_any:
+                logger.info("Triggering ROMM file hash scan due to replacing files within existing folders")
+                romm_library_cleanup.scan_file_changes()
     except qbittorrentapi.LoginFailed as e:
         logger.error(f"qBittorrent login failed: {e}")
     except qbittorrentapi.APIConnectionError as e:
