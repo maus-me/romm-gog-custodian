@@ -22,11 +22,12 @@ import qbittorrentapi
 from qbittorrentapi import Client
 
 # Load modules with explicit imports
-from src.modules import romm_library_cleanup
+from src.modules import romm_library_cleanup, library_cleanup
 from src.modules.config_parse import (
     GAME_PATH, conn_info, QBIT_CATEGORY,
     GOG_ALL_GAMES_FILE, GOG_ALL_GAMES_URL,
-    MAX_TORRENTS_PER_RUN, DELETE_AFTER_PROCESSING, QBIT_ENABLE, ROMM_ENABLE, ROMM_SCAN_AFTER_IMPORT
+    MAX_TORRENTS_PER_RUN, DELETE_AFTER_PROCESSING, QBIT_ENABLE, ROMM_ENABLE, ROMM_SCAN_AFTER_IMPORT, REMOVE_EXTRAS,
+    ROMM_SCAN_DANGEROUS_FILETYPES
 )
 from src.modules.helpers import fetch_json_data
 
@@ -144,6 +145,13 @@ def torrent_manager():
 
         # If any folder was replaced and ROMM integration is enabled, trigger a file changes scan
         if ROMM_ENABLE and ROMM_SCAN_AFTER_IMPORT:
+            if replaced_any or new_any:
+                if REMOVE_EXTRAS:
+                    library_cleanup.remove_extras()
+                else:
+                    logger.info("Skipping extras removal.")
+                if ROMM_SCAN_DANGEROUS_FILETYPES:
+                    romm_library_cleanup.find_dangerous_filetypes()
             if replaced_any:
                 logger.info("Triggering ROMM file hash scan due to replacing files within existing folders")
                 romm_library_cleanup.scan_file_changes()

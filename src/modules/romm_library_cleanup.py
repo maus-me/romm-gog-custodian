@@ -21,8 +21,6 @@ def run():
                 find_fragmented()
             if ROMM_MISSING_EXE:
                 find_missing_exe()
-            if ROMM_SCAN_DANGEROUS_FILETYPES:
-                find_dangerous_filetypes()
 
             logger.info("ROMM library cleanup completed.")
         except Exception as e:

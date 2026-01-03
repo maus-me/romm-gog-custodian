@@ -4,7 +4,7 @@ import os
 
 # Load modules
 from src.modules.config_parse import (
-    GAME_PATH, REMOVE_EXTRAS, EXTRAS_PATTERNS,
+    GAME_PATH, EXTRAS_PATTERNS,
     REMOVE_EMPTY_DIRS, REMOVE_TEXT_FILES
 )
 from src.modules.helpers import format_size
@@ -20,11 +20,6 @@ def run():
     logger.info("Post-library cleanup...")
 
     # Remove unnecessary files based on configuration
-    if REMOVE_EXTRAS:
-        remove_extras()
-    else:
-        logger.info("Skipping extras removal.")
-
     if REMOVE_EMPTY_DIRS:
         remove_empty()
     else:
