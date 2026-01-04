@@ -47,7 +47,7 @@ def remove_extras():
                 size = os.path.getsize(file_path) if os.path.isfile(file_path) else 0
 
                 # Text file cleanup (if enabled in config)
-                if REMOVE_TEXT_FILES and file.endswith('gog-games.to.txt'):
+                if REMOVE_TEXT_FILES and file.lower().endswith('gog-games.to.txt'):
                     try:
                         os.remove(file_path)
                         logger.info(f'Removed txt: {trim_path(file_path)} | Size: {format_size(size)}')
@@ -55,7 +55,8 @@ def remove_extras():
                         logger.error(f'Error removing file {file_path}: {e}')
 
                 # Zip file cleanup
-                if any(zip_string.lower() in file.lower() for zip_string in zip_strings) and file.endswith('.zip'):
+                if any(zip_string.lower() in file.lower() for zip_string in zip_strings) and file.lower().endswith(
+                        '.zip'):
                     try:
                         os.remove(file_path)
                         # log which file was removed and the size of the file
