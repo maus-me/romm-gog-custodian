@@ -189,7 +189,8 @@ def find_missing_exe():
             is_exe_present = False
 
             for file in item.get('files', []):
-                if file.get('file_name').endswith('.exe'):
+                file_name = file.get('file_name')
+                if file_name.lower().endswith('.exe'):
                     is_exe_present = True
                     break
 
@@ -243,7 +244,8 @@ def find_dangerous_filetypes():
 
         for item in items:
             for file in item.get('files', []):
-                if file.get('file_name').endswith(
+                file_name = file.get('file_name')
+                if file_name.lower().endswith(
                         ('.bat', '.cmd', '.url', '.m3u', '.pdf', '.js', '.iso', '.ics', '.msi', '.msix', '.msu', '.one',
                          '.cpl', '.cab', '.gadget', '.iqy', '.msp', '.appx', '.jse', '.scr', '.reg', '.ws', '.wse',
                          '.wsf')):
